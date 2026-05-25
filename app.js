@@ -12,16 +12,8 @@ const state = {
   message: "",
 };
 
-const roleFields = {
-  Admin: "all",
-  Doctor: new Set(["diagnosis", "consultantId", "machine", "paymentMode", "contouringDone", "planningDone", "tentativeStart", "pendingIssue", "cancelled", "cancellationNote"]),
-  Physicist: new Set(["planningDone", "machine"]),
-  RTT: new Set(["simulationDone", "simulationDate", "treatmentStarted", "consultantId", "machine"]),
-};
-
-const can = (field) => state.me?.role === "Admin" || roleFields[state.me?.role]?.has(field);
-const canAdmin = () => state.me?.role === "Admin";
-const canAddPatient = () => ["Admin", "Doctor"].includes(state.me?.role);
+const can = () => true;
+const canAddPatient = () => true;
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -41,8 +33,8 @@ async function loadState() {
     Object.assign(state, data);
     state.selectedId ||= state.patients[0]?.id || "";
     renderApp();
-  } catch {
-    renderLogin();
+  } catch (error) {
+    document.getElementById("app").innerHTML = `<main class="auth-shell"><div class="auth-card"><h1>RT Patient Flow</h1><p>Could not load the backend.</p><div class="notice">${escapeHtml(error.message)}</div></div></main>`;
   }
 }
 
@@ -141,12 +133,11 @@ function renderApp() {
     <header class="topbar">
       <div>
         <h1>RT Patient Flow</h1>
-        <p>${escapeHtml(state.me.name)} · ${escapeHtml(state.me.role)}</p>
+        <p>Radiation department patient tracker</p>
       </div>
       <div class="top-actions">
         ${canAddPatient() ? `<button class="button primary" data-action="open-add">${icon("plus")} Add Patient</button>` : ""}
         <button class="icon-button" title="Settings" data-action="open-settings">${icon("settings")}</button>
-        <button class="icon-button" title="Logout" data-action="logout">${icon("logOut")}</button>
       </div>
     </header>
     <main class="shell">
@@ -190,10 +181,9 @@ function patientDetails(patient) {
   return `
     <div class="detail-head">
       <div class="avatar">${icon(patient.pendingIssue ? "alert" : "user")}</div>
-      <div><h2>${escapeHtml(patient.name)}</h2><p>${escapeHtml(patient.id)} · ${escapeHtml(patient.diagnosis || "Diagnosis not entered")}</p></div>
+      <div><h2>${escapeHtml(patient.name)}</h2><p>${escapeHtml(patient.id)} - ${escapeHtml(patient.diagnosis || "Diagnosis not entered")}</p></div>
       <span class="status ${status.key}">${status.label}</span>
     </div>
-    <div class="role-note">Editable fields are enabled for your ${escapeHtml(state.me.role)} role.</div>
     <div class="form-grid" data-patient-form="${escapeAttr(patient.id)}">
       ${detailInput("Patient name", "name", patient.name)}
       ${detailInput("Patient ID", "id", patient.id)}
@@ -263,24 +253,13 @@ function addPatientDialog() {
 function settingsDialog() {
   return `<div class="modal-backdrop"><div class="modal wide"><div class="modal-head"><h2>Settings</h2><button class="icon-button" data-action="close-dialog">${icon("x")}</button></div>
     <div class="settings-grid">
-      <section><h3>My account</h3><button class="button" data-action="open-password">${icon("lock")} Change password</button></section>
-      ${canAdmin() ? adminSettings() : `<section><h3>Access</h3><p class="modal-copy">Only Admin users can onboard members or manage options.</p></section>`}
+      ${adminSettings()}
     </div>
   </div></div>`;
 }
 
 function adminSettings() {
   return `
-    <section><h3>Onboard team member</h3>
-      <div class="add-user-grid">
-        <input id="new-user-name" placeholder="Name" />
-        <input id="new-user-email" placeholder="Email" />
-        <input id="new-user-login" placeholder="Login ID optional" />
-        <select id="new-user-role">${["Admin", "Doctor", "Physicist", "RTT"].map((r) => option(r, r, "Doctor")).join("")}</select>
-        <button class="button primary" data-action="add-user">${icon("plus")} Generate login</button>
-      </div>
-      <div class="settings-list">${state.users.map((u) => `<div class="settings-item user-row"><span>${escapeHtml(u.name)}<small>${escapeHtml(u.login_id)} · ${escapeHtml(u.email)}</small></span><select class="compact-select" data-user-role="${u.id}">${["Admin", "Doctor", "Physicist", "RTT"].map((r) => option(r, r, u.role)).join("")}</select><button class="mini ${u.active ? "active" : ""}" data-action="toggle-user" data-id="${u.id}" data-active="${u.active ? "0" : "1"}">${u.active ? "Active" : "Disabled"}</button></div>`).join("")}</div>
-    </section>
     <section><h3>Consultants</h3><div class="add-line"><input id="new-consultant" placeholder="Add consultant" /><button class="button" data-action="add-consultant">${icon("plus")} Add</button></div><div class="settings-list">${state.consultants.map((c) => `<div class="settings-item"><span>${escapeHtml(c.name)}</span><button class="mini ${c.primary ? "active" : ""}" data-action="primary-consultant" data-id="${escapeAttr(c.id)}">${c.primary ? "Primary" : "Set primary"}</button><button class="icon-button danger-icon" data-action="delete-consultant" data-id="${escapeAttr(c.id)}" ${state.consultants.length === 1 ? "disabled" : ""}>${icon("trash")}</button></div>`).join("")}</div></section>
     <section><h3>Payment modes</h3><div class="add-line"><input id="new-payment" placeholder="Add payment mode" /><button class="button" data-action="add-payment">${icon("plus")} Add</button></div><div class="settings-list">${state.paymentModes.map((m) => `<div class="settings-item"><span>${escapeHtml(m)}</span><button class="icon-button danger-icon" data-action="delete-payment" data-mode="${escapeAttr(m)}" ${state.paymentModes.length === 1 ? "disabled" : ""}>${icon("trash")}</button></div>`).join("")}</div></section>`;
 }
@@ -320,7 +299,6 @@ function bindApp() {
   document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { state.view = button.dataset.view; renderApp(); }));
   document.querySelectorAll("[data-select]").forEach((row) => row.addEventListener("click", () => { state.selectedId = row.dataset.select; renderApp(); }));
   document.querySelectorAll("[data-field]").forEach((input) => input.addEventListener("change", () => updatePatient(input.closest("[data-patient-form]").dataset.patientForm, { [input.dataset.field]: input.value })));
-  document.querySelectorAll("[data-user-role]").forEach((select) => select.addEventListener("change", () => run(() => api(`/api/users/${select.dataset.userRole}`, { method: "PATCH", body: { role: select.value } }).then(loadState))));
   document.querySelectorAll("[data-toggle]").forEach((input) => input.addEventListener("change", () => updatePatient(input.dataset.id, { [input.dataset.toggle]: input.checked })));
   document.querySelectorAll("[data-action]").forEach((el) => el.addEventListener("click", handleAction));
   document.getElementById("add-form")?.addEventListener("submit", (event) => submitForm(event, "/api/patients"));
@@ -342,7 +320,6 @@ async function handleAction(event) {
   if (action === "open-password") state.dialog = "password";
   if (action === "close-dialog") state.dialog = null;
   if (action === "open-cancel") state.dialog = `cancel:${id}`;
-  if (action === "logout") await run(() => api("/api/logout", { method: "POST" }).then(() => { state.me = null; renderLogin(); }));
   if (action === "save-issue") await updatePatient(id, { pendingIssue: document.querySelector(`[data-issue="${CSS.escape(id)}"]`)?.value || "", cancelled: false });
   if (action === "resolve-issue") await updatePatient(id, { pendingIssue: "" });
   if (action === "add-consultant") await postAndReload("/api/consultants", { name: document.getElementById("new-consultant").value });
@@ -350,10 +327,8 @@ async function handleAction(event) {
   if (action === "delete-consultant") await run(() => api(`/api/consultants/${encodeURIComponent(id)}`, { method: "DELETE" }).then(loadState));
   if (action === "add-payment") await postAndReload("/api/payment-modes", { name: document.getElementById("new-payment").value });
   if (action === "delete-payment") await run(() => api(`/api/payment-modes/${encodeURIComponent(event.currentTarget.dataset.mode)}`, { method: "DELETE" }).then(loadState));
-  if (action === "add-user") await addUser();
-  if (action === "toggle-user") await run(() => api(`/api/users/${id}`, { method: "PATCH", body: { active: event.currentTarget.dataset.active } }).then(loadState));
-  if (!["logout", "save-issue", "resolve-issue", "add-consultant", "primary-consultant", "delete-consultant", "add-payment", "delete-payment", "add-user", "toggle-user"].includes(action)) {
-    state.me ? renderApp() : renderLogin();
+  if (!["save-issue", "resolve-issue", "add-consultant", "primary-consultant", "delete-consultant", "add-payment", "delete-payment"].includes(action)) {
+    renderApp();
   }
 }
 
@@ -368,20 +343,6 @@ async function submitForm(event, path) {
 
 async function postAndReload(path, body) {
   await run(() => api(path, { method: "POST", body }).then(loadState));
-}
-
-async function addUser() {
-  const body = {
-    name: document.getElementById("new-user-name").value,
-    email: document.getElementById("new-user-email").value,
-    loginId: document.getElementById("new-user-login").value,
-    role: document.getElementById("new-user-role").value,
-  };
-  await run(async () => {
-    const data = await api("/api/users", { method: "POST", body });
-    await loadState();
-    alert(`Login ID: ${data.loginId}\nTemporary password: ${data.temporaryPassword}`);
-  });
 }
 
 async function run(task) {
