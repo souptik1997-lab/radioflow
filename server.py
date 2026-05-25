@@ -479,7 +479,7 @@ def make_login(name):
 
 
 def send_recovery_email(email, token):
-    link = f"{os.environ.get('APP_BASE_URL', 'http://localhost:8000')}?reset={token}"
+    link = f"{os.environ.get('APP_BASE_URL', fetch("/api/endpoint"))}?reset={token}"
     if not os.environ.get("SMTP_HOST"):
         print(f"Password recovery link for {email}: {link}")
         return
