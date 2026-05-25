@@ -1,6 +1,8 @@
-# RT Patient Flow
+# RadioFlow
 
-A hosted radiation department patient-flow tracker with a Python/SQLite backend, login, role-based access, and a responsive browser UI for Windows, macOS, Android, and intranet/server use.
+Management of radiotherapy department workflow.
+
+RadioFlow is a hosted radiation department patient-flow tracker with a Python/SQLite backend, login, role-based access, and a responsive browser UI for Windows, macOS, Android, and intranet/server use.
 
 ## Run
 
