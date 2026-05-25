@@ -206,37 +206,26 @@ class Handler(SimpleHTTPRequestHandler):
             elif path == "/api/reset-password" and method == "POST":
                 self.reset_password()
             elif path == "/api/me":
-                self.require_user()
-                self.send_json({"user": self.user})
+                self.send_json({"user": None})
             elif path == "/api/state":
-                self.require_user()
                 self.state()
             elif path == "/api/patients" and method == "POST":
-                self.require_user(("Admin", "Doctor"))
                 self.create_patient()
             elif path.startswith("/api/patients/") and method == "PATCH":
-                self.require_user()
                 self.update_patient(path.rsplit("/", 1)[1])
             elif path == "/api/consultants" and method == "POST":
-                self.require_user(("Admin",))
                 self.create_consultant()
             elif path.startswith("/api/consultants/") and method == "PATCH":
-                self.require_user(("Admin",))
                 self.set_primary_consultant(path.rsplit("/", 1)[1])
             elif path.startswith("/api/consultants/") and method == "DELETE":
-                self.require_user(("Admin",))
                 self.delete_consultant(path.rsplit("/", 1)[1])
             elif path == "/api/payment-modes" and method == "POST":
-                self.require_user(("Admin",))
                 self.create_payment_mode()
             elif path.startswith("/api/payment-modes/") and method == "DELETE":
-                self.require_user(("Admin",))
                 self.delete_payment_mode(path.rsplit("/", 1)[1])
             elif path == "/api/users" and method == "POST":
-                self.require_user(("Admin",))
                 self.create_user()
             elif path.startswith("/api/users/") and method == "PATCH":
-                self.require_user(("Admin",))
                 self.update_user(path.rsplit("/", 1)[1])
             elif path == "/api/change-password" and method == "POST":
                 self.require_user()
@@ -318,7 +307,7 @@ class Handler(SimpleHTTPRequestHandler):
                 consultants.append({"id": row["id"], "name": row["name"], "primary": bool(row["is_primary"])})
             modes = [row["name"] for row in conn.execute("SELECT name FROM payment_modes ORDER BY name")]
             users = [dict(row) for row in conn.execute("SELECT id, login_id, name, email, role, active, must_change_password FROM users ORDER BY name")]
-        self.send_json({"patients": patients, "consultants": consultants, "paymentModes": modes, "machines": ["Elekta", "Tomo"], "users": users, "me": self.user})
+        self.send_json({"patients": patients, "consultants": consultants, "paymentModes": modes, "machines": ["Elekta", "Tomo"], "users": users, "me": None})
 
     def create_patient(self):
         data = self.body()
@@ -339,13 +328,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def update_patient(self, patient_id):
         data = self.body()
-        allowed = ROLE_FIELDS[self.user["role"]]
-        updates = {key: value for key, value in data.items() if key in allowed}
-        blocked = set(data) - set(updates)
-        if blocked:
-            raise PermissionError(f"{self.user['role']} cannot update: {', '.join(sorted(blocked))}")
+        updates = {key: value for key, value in data.items() if key in ADMIN_FIELDS}
         if not updates:
-            raise ValueError("No permitted fields to update")
+            raise ValueError("No patient fields to update")
         bool_fields = {"simulationDone", "contouringDone", "planningDone", "treatmentStarted", "cancelled"}
         assignments = []
         values = []
