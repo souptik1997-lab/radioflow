@@ -105,3 +105,7 @@ def fetch_settings():
         'smtp_user': bool(get_setting('SMTP_USER')),
         'google_drive': bool(get_setting('GOOGLE_DRIVE_CLIENT_ID'))
     }
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
