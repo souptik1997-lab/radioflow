@@ -1,0 +1,11 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+supabase==2.7.4
+cryptography==43.0.1
+openpyxl==3.1.5
+google-api-python-client==2.145.0
+google-auth==2.35.0
+python-multipart==0.0.9
+websockets==13.1
